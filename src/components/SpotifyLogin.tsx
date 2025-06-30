@@ -1,6 +1,11 @@
 const SpotifyLogin = () => {
   const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-  const REDIRECT_URI = "http://localhost:5173/dashboard";
+
+  const REDIRECT_URI =
+    import.meta.env.DEV
+      ? "http://localhost:5173/dashboard"
+      : "https://music-match-frontend-fawn.vercel.app/dashboard";
+
   const AUTH_ENDPOINT = "https://accounts.spotify.com/authorize";
   const RESPONSE_TYPE = "token";
   const SCOPES = [
