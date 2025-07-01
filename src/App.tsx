@@ -1,8 +1,15 @@
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import SpotifyLogin from "./components/SpotifyLogin";
+import Dashboard from "./pages/Dashboard";
+
 function App() {
   return (
-    <div className="h-screen flex items-center justify-center bg-gray-900 text-white">
-      <h1 className="text-4xl font-bold">🎵 Welcome to Music Match</h1>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<SpotifyLogin />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+    </Router>
   );
 }
 
