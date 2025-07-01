@@ -25,34 +25,33 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ Grab access_token from query string (from backend redirect)
   useEffect(() => {
-    let _token = new URLSearchParams(window.location.search).get("access_token");
+    const params = new URLSearchParams(window.location.search);
+    const queryToken = params.get("access_token");
 
-    if (!_token) {
-      const hash = window.location.hash;
-      _token = hash.split("&").find((el) => el.startsWith("#access_token"))?.split("=")[1] || null;
-    }
-
-    if (_token) {
-      setToken(_token);
-      localStorage.setItem("spotify_token", _token);
-      window.history.replaceState({}, document.title, "/dashboard");
+    if (queryToken) {
+      setToken(queryToken);
+      localStorage.setItem("spotify_token", queryToken);
+      window.history.replaceState({}, document.title, "/dashboard"); // remove token from URL
     } else {
       const stored = localStorage.getItem("spotify_token");
       if (stored) setToken(stored);
     }
   }, []);
 
+  // ✅ Fetch currently playing track
   useEffect(() => {
     if (!token) return;
 
     setLoading(true);
     axios
       .get<PlayerResponse>("https://api.spotify.com/v1/me/player", {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       .then((res) => {
-        console.log("Track data:", res.data);
         if (res.data?.item) {
           setTrack(res.data.item);
         } else {
