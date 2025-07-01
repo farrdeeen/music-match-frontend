@@ -25,22 +25,24 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Extract token from query string or local storage
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const _token = params.get("access_token");
+    let _token = new URLSearchParams(window.location.search).get("access_token");
+
+    if (!_token) {
+      const hash = window.location.hash;
+      _token = hash.split("&").find((el) => el.startsWith("#access_token"))?.split("=")[1] || null;
+    }
 
     if (_token) {
       setToken(_token);
       localStorage.setItem("spotify_token", _token);
-      window.history.replaceState({}, document.title, "/dashboard"); // clean up URL
+      window.history.replaceState({}, document.title, "/dashboard");
     } else {
       const stored = localStorage.getItem("spotify_token");
       if (stored) setToken(stored);
     }
   }, []);
 
-  // Fetch current playing track
   useEffect(() => {
     if (!token) return;
 
@@ -50,6 +52,7 @@ const Dashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
+        console.log("Track data:", res.data);
         if (res.data?.item) {
           setTrack(res.data.item);
         } else {
@@ -73,7 +76,18 @@ const Dashboard = () => {
       <h1 className="text-2xl font-bold mb-6">🎵 Now Playing</h1>
 
       {loading && <p>Loading...</p>}
-      {error && <p className="text-red-400">{error}</p>}
+
+      {error && (
+        <div>
+          <p className="text-red-400 mb-4">{error}</p>
+          <a
+            href="/"
+            className="bg-green-500 px-4 py-2 rounded hover:bg-green-600 transition"
+          >
+            Login Again
+          </a>
+        </div>
+      )}
 
       {!loading && !error && track ? (
         <div>
