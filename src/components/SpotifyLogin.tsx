@@ -1,5 +1,7 @@
+
 const SpotifyLogin = () => {
   const CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
+  console.log("SpotifyLogin loaded");
 
   const REDIRECT_URI =
     import.meta.env.DEV
