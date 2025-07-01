@@ -15,13 +15,13 @@ interface TrackItem {
   album: Album;
 }
 
-interface CurrentlyPlayingResponse {
-  item: TrackItem;
+interface PlayerResponse {
+  item?: TrackItem;
 }
 
 const Dashboard = () => {
   const [token, setToken] = useState<string | null>(null);
-  const [track, setTrack] = useState<CurrentlyPlayingResponse | null>(null);
+  const [track, setTrack] = useState<TrackItem | null>(null);
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -44,29 +44,35 @@ const Dashboard = () => {
     if (!token) return;
 
     axios
-      .get("https://api.spotify.com/v1/me/player/currently-playing", {
+      .get<PlayerResponse>("https://api.spotify.com/v1/me/player", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        console.log("Spotify API Response:", res.data);
-        setTrack(res.data);
+        console.log("Status:", res.status);
+        console.log("Response:", res.data);
+        if (res.data?.item) {
+          setTrack(res.data.item);
+        } else {
+          console.log("No track currently playing.");
+          setTrack(null);
+        }
       })
       .catch((err) => {
-        console.error("Error fetching track:", err.response?.data || err.message);
+        console.error("API Error:", err.response?.status, err.response?.data || err.message);
       });
   }, [token]);
 
   return (
     <div className="p-10">
       <h1 className="text-2xl font-bold mb-6">🎵 Now Playing</h1>
-      {track?.item ? (
+      {track ? (
         <div>
-          <p className="text-xl">{track.item.name}</p>
+          <p className="text-xl">{track.name}</p>
           <p className="text-sm text-gray-500">
-            by {track.item.artists.map((a) => a.name).join(", ")}
+            by {track.artists.map((a) => a.name).join(", ")}
           </p>
           <img
-            src={track.item.album.images[0]?.url}
+            src={track.album.images[0]?.url}
             className="mt-4 w-64"
             alt="Album Cover"
           />
