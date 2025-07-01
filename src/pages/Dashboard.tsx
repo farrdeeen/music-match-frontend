@@ -1,52 +1,42 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-interface Artist {
+interface Track {
   name: string;
-}
-
-interface Album {
-  images: { url: string }[];
-}
-
-interface TrackItem {
-  name: string;
-  artists: Artist[];
-  album: Album;
-}
-
-interface PlayerResponse {
-  item?: TrackItem;
+  artists: { name: string }[];
+  album: { images: { url: string }[] };
 }
 
 const Dashboard = () => {
   const [token, setToken] = useState<string | null>(null);
-  const [track, setTrack] = useState<TrackItem | null>(null);
+  const [track, setTrack] = useState<Track | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Grab access_token from query string (from backend redirect)
+  const BACKEND_URL = "https://music-match-backend.onrender.com"; // Update if needed
+
+  // Grab JWT token from URL or localStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const queryToken = params.get("access_token");
+    const jwtToken = params.get("token");
 
-    if (queryToken) {
-      setToken(queryToken);
-      localStorage.setItem("spotify_token", queryToken);
-      window.history.replaceState({}, document.title, "/dashboard"); // remove token from URL
+    if (jwtToken) {
+      setToken(jwtToken);
+      localStorage.setItem("jwt", jwtToken);
+      window.history.replaceState({}, document.title, "/dashboard"); // Clean URL
     } else {
-      const stored = localStorage.getItem("spotify_token");
-      if (stored) setToken(stored);
+      const storedToken = localStorage.getItem("jwt");
+      if (storedToken) setToken(storedToken);
     }
   }, []);
 
-  // ✅ Fetch currently playing track
+  // Fetch current track from your backend
   useEffect(() => {
     if (!token) return;
 
     setLoading(true);
     axios
-      .get<PlayerResponse>("https://api.spotify.com/v1/me/player", {
+      .get(`${BACKEND_URL}/current-track`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -59,10 +49,9 @@ const Dashboard = () => {
         }
       })
       .catch((err) => {
-        const status = err.response?.status;
-        if (status === 401) {
-          setError("Invalid or expired token. Please log in again.");
-          localStorage.removeItem("spotify_token");
+        if (err.response?.status === 401) {
+          setError("Session expired. Please log in again.");
+          localStorage.removeItem("jwt");
         } else {
           setError("Failed to fetch track info.");
         }
@@ -94,17 +83,17 @@ const Dashboard = () => {
           <p className="text-sm text-gray-400">
             by {track.artists.map((a) => a.name).join(", ")}
           </p>
-          <img
-            src={track.album.images[0]?.url}
-            alt="Album Cover"
-            className="mt-4 w-64 rounded-lg"
-          />
+          {track.album.images[0] && (
+            <img
+              src={track.album.images[0].url}
+              alt="Album cover"
+              className="mt-4 w-64 rounded-lg"
+            />
+          )}
         </div>
       ) : (
         !loading &&
-        !error && (
-          <p>No song is currently playing on your Spotify account.</p>
-        )
+        !error && <p>No track is currently playing.</p>
       )}
     </div>
   );
