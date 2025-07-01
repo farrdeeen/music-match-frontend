@@ -22,63 +22,76 @@ interface PlayerResponse {
 const Dashboard = () => {
   const [token, setToken] = useState<string | null>(null);
   const [track, setTrack] = useState<TrackItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  // Extract token from query string or local storage
   useEffect(() => {
-    const hash = window.location.hash;
-    const _token = hash
-      .split("&")
-      .find((el) => el.startsWith("#access_token"))
-      ?.split("=")[1];
+    const params = new URLSearchParams(window.location.search);
+    const _token = params.get("access_token");
 
     if (_token) {
       setToken(_token);
-      window.localStorage.setItem("spotify_token", _token);
-      window.location.hash = "";
+      localStorage.setItem("spotify_token", _token);
+      window.history.replaceState({}, document.title, "/dashboard"); // clean up URL
     } else {
-      const stored = window.localStorage.getItem("spotify_token");
+      const stored = localStorage.getItem("spotify_token");
       if (stored) setToken(stored);
     }
   }, []);
 
+  // Fetch current playing track
   useEffect(() => {
     if (!token) return;
 
+    setLoading(true);
     axios
       .get<PlayerResponse>("https://api.spotify.com/v1/me/player", {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((res) => {
-        console.log("Status:", res.status);
-        console.log("Response:", res.data);
         if (res.data?.item) {
           setTrack(res.data.item);
         } else {
-          console.log("No track currently playing.");
           setTrack(null);
         }
       })
       .catch((err) => {
-        console.error("API Error:", err.response?.status, err.response?.data || err.message);
-      });
+        const status = err.response?.status;
+        if (status === 401) {
+          setError("Invalid or expired token. Please log in again.");
+          localStorage.removeItem("spotify_token");
+        } else {
+          setError("Failed to fetch track info.");
+        }
+      })
+      .finally(() => setLoading(false));
   }, [token]);
 
   return (
-    <div className="p-10">
+    <div className="p-10 text-white bg-black min-h-screen">
       <h1 className="text-2xl font-bold mb-6">🎵 Now Playing</h1>
-      {track ? (
+
+      {loading && <p>Loading...</p>}
+      {error && <p className="text-red-400">{error}</p>}
+
+      {!loading && !error && track ? (
         <div>
           <p className="text-xl">{track.name}</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             by {track.artists.map((a) => a.name).join(", ")}
           </p>
           <img
             src={track.album.images[0]?.url}
-            className="mt-4 w-64"
             alt="Album Cover"
+            className="mt-4 w-64 rounded-lg"
           />
         </div>
       ) : (
-        <p>No song is currently playing on your Spotify account.</p>
+        !loading &&
+        !error && (
+          <p>No song is currently playing on your Spotify account.</p>
+        )
       )}
     </div>
   );
