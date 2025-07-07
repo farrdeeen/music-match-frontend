@@ -105,7 +105,7 @@ const Dashboard = () => {
 
       {/* 🎧 Button to navigate to Matches */}
       <button
-        onClick={handleViewMatches}
+        onClick={() => navigate("/matches")}
         className="mt-6 px-5 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition"
       >
         View Your Matches 🎧
