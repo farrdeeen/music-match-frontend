@@ -3,8 +3,10 @@ import SpotifyLogin from "./components/SpotifyLogin";
 import Dashboard from "./pages/Dashboard";
 import Matches from "./pages/Matches";
 
+
 function App() {
   return (
+    
     <Router>
       <Routes>
         <Route path="/" element={<SpotifyLogin />} />
@@ -14,5 +16,5 @@ function App() {
     </Router>
   );
 }
-
+console.log("📡 App rendered");
 export default App;
