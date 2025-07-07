@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 interface Track {
   name: string;
@@ -8,6 +9,7 @@ interface Track {
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [token, setToken] = useState<string | null>(null);
   const [track, setTrack] = useState<Track | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ const Dashboard = () => {
     }
   }, []);
 
-  // Fetch current track from your backend
+  // Fetch current track from backend
   useEffect(() => {
     if (!token) return;
 
@@ -49,6 +51,7 @@ const Dashboard = () => {
         }
       })
       .catch((err) => {
+        console.error("❌ Failed to fetch current track:", err);
         if (err.response?.status === 401) {
           setError("Session expired. Please log in again.");
           localStorage.removeItem("jwt");
@@ -59,14 +62,18 @@ const Dashboard = () => {
       .finally(() => setLoading(false));
   }, [token]);
 
+  const handleViewMatches = () => {
+    navigate("/matches");
+  };
+
   return (
     <div className="p-10 text-white bg-black min-h-screen">
-      <h1 className="text-2xl font-bold mb-6">🎵 Now Playing</h1>
+      <h1 className="text-3xl font-bold text-green-400 mb-6">🎵 Now Playing</h1>
 
-      {loading && <p>Loading...</p>}
+      {loading && <p className="text-gray-300">Loading...</p>}
 
       {error && (
-        <div>
+        <div className="mb-4">
           <p className="text-red-400 mb-4">{error}</p>
           <a
             href="/"
@@ -78,8 +85,8 @@ const Dashboard = () => {
       )}
 
       {!loading && !error && track ? (
-        <div>
-          <p className="text-xl">{track.name}</p>
+        <div className="mb-6">
+          <p className="text-xl font-semibold">{track.name}</p>
           <p className="text-sm text-gray-400">
             by {track.artists.map((a) => a.name).join(", ")}
           </p>
@@ -95,6 +102,14 @@ const Dashboard = () => {
         !loading &&
         !error && <p>No track is currently playing.</p>
       )}
+
+      {/* 🎧 Button to navigate to Matches */}
+      <button
+        onClick={handleViewMatches}
+        className="mt-6 px-5 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition"
+      >
+        View Your Matches 🎧
+      </button>
     </div>
   );
 };
