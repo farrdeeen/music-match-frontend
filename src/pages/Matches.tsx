@@ -21,9 +21,10 @@ const Matches = () => {
     import.meta.env.VITE_BACKEND_URL || "https://music-match-backend.onrender.com";
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("jwt");
-    if (!storedToken) {
-      setError("You are not logged in. Please log in first.");
+    const token = localStorage.getItem("jwt");
+
+    if (!token) {
+      setError("You are not logged in.");
       setLoading(false);
       return;
     }
@@ -31,20 +32,11 @@ const Matches = () => {
     const fetchMatches = async () => {
       try {
         const res = await axios.get(`${BACKEND_URL}/match-users`, {
-          headers: { Authorization: `Bearer ${storedToken}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
-
-        // 🛡️ Defensive coding: ensure shared_artists is always an array
-        const cleanedMatches = res.data.matches.map((m: any) => ({
-          ...m,
-          shared_artists: Array.isArray(m.shared_artists) ? m.shared_artists : [],
-          top_artists: Array.isArray(m.top_artists) ? m.top_artists : [],
-        }));
-
-        setMatches(cleanedMatches);
-        localStorage.setItem("matches", JSON.stringify(cleanedMatches));
+        setMatches(res.data.matches);
       } catch (err: any) {
-        setError("Failed to fetch matches. Please try again.");
+        setError("Failed to fetch matches.");
       } finally {
         setLoading(false);
       }
@@ -53,8 +45,8 @@ const Matches = () => {
     fetchMatches();
   }, []);
 
-  const handleChatStart = (match: Match) => {
-    navigate(`/chat/${match.spotify_id}`);
+  const handleStartChat = (matchId: string, matchName: string) => {
+    navigate(`/chat/${matchId}`, { state: { name: matchName } });
   };
 
   if (loading) {
@@ -67,16 +59,20 @@ const Matches = () => {
 
   return (
     <div className="p-8 bg-black min-h-screen text-white">
-      <h1 className="text-3xl font-bold mb-6 text-green-400">🎧 Your Music Matches</h1>
+      <h1 className="text-3xl font-bold mb-6 text-green-400 animate-pulse">
+        🎧 Your Matches
+      </h1>
 
       {matches.length === 0 ? (
-        <p>No matches found yet. Start listening to more music!</p>
+        <p className="text-center text-gray-400">
+          No matches found yet. Start listening to more music!
+        </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {matches.map((match) => (
             <div
               key={match.spotify_id}
-              className="bg-gray-900 p-4 rounded-lg shadow hover:shadow-xl transition duration-300"
+              className="bg-gray-900 p-4 rounded-lg shadow-lg hover:shadow-green-500/50 transition duration-300 ease-in-out transform hover:-translate-y-1"
             >
               <div className="flex items-center space-x-4">
                 <img
@@ -91,19 +87,29 @@ const Matches = () => {
                   </p>
                 </div>
               </div>
+
+              {/* Shared Artists */}
               <div className="mt-4">
-                <p className="text-gray-400 font-medium">Shared Artists:</p>
-                <ul className="list-disc list-inside">
-                  {(match.shared_artists || []).map((artist, idx) => (
-                    <li key={idx}>{artist}</li>
-                  ))}
-                </ul>
+                <p className="text-gray-400 font-medium">🎵 Shared Artists:</p>
+                {match.shared_artists && match.shared_artists.length > 0 ? (
+                  <ul className="list-disc list-inside text-sm">
+                    {match.shared_artists.map((artist, idx) => (
+                      <li key={idx}>{artist}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 italic">No shared artists found.</p>
+                )}
               </div>
+
+              {/* Start Chat Button */}
               <button
-                className="mt-4 bg-green-500 px-3 py-2 rounded hover:bg-green-600 transition"
-                onClick={() => handleChatStart(match)}
+                onClick={() =>
+                  handleStartChat(match.spotify_id, match.display_name)
+                }
+                className="mt-4 w-full bg-green-500 text-black font-medium px-4 py-2 rounded hover:bg-green-400 hover:scale-105 transition duration-300 ease-in-out"
               >
-                Start Chat 💬
+                💬 Start Chat
               </button>
             </div>
           ))}
