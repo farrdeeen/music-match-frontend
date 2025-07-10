@@ -7,13 +7,12 @@ interface Match {
   display_name: string;
   profile_image: string;
   similarity: number;
-  top_artists: string[];
   shared_artists: string[];
+  top_artists: string[];
 }
 
 const Matches = () => {
   const navigate = useNavigate();
-  const [token, setToken] = useState<string | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,16 +28,21 @@ const Matches = () => {
       return;
     }
 
-    setToken(storedToken);
-
     const fetchMatches = async () => {
       try {
         const res = await axios.get(`${BACKEND_URL}/match-users`, {
           headers: { Authorization: `Bearer ${storedToken}` },
         });
-        setMatches(res.data.matches);
-        // Save matches locally for chat page lookup
-        localStorage.setItem("matches", JSON.stringify(res.data.matches));
+
+        // 🛡️ Defensive coding: ensure shared_artists is always an array
+        const cleanedMatches = res.data.matches.map((m: any) => ({
+          ...m,
+          shared_artists: Array.isArray(m.shared_artists) ? m.shared_artists : [],
+          top_artists: Array.isArray(m.top_artists) ? m.top_artists : [],
+        }));
+
+        setMatches(cleanedMatches);
+        localStorage.setItem("matches", JSON.stringify(cleanedMatches));
       } catch (err: any) {
         setError("Failed to fetch matches. Please try again.");
       } finally {
@@ -48,6 +52,10 @@ const Matches = () => {
 
     fetchMatches();
   }, []);
+
+  const handleChatStart = (match: Match) => {
+    navigate(`/chat/${match.spotify_id}`);
+  };
 
   if (loading) {
     return <p className="text-center mt-10 text-white">Loading your matches…</p>;
@@ -83,21 +91,19 @@ const Matches = () => {
                   </p>
                 </div>
               </div>
-
               <div className="mt-4">
                 <p className="text-gray-400 font-medium">Shared Artists:</p>
                 <ul className="list-disc list-inside">
-                  {match.shared_artists.map((artist, idx) => (
+                  {(match.shared_artists || []).map((artist, idx) => (
                     <li key={idx}>{artist}</li>
                   ))}
                 </ul>
               </div>
-
               <button
-                onClick={() => navigate(`/chat/${match.spotify_id}`)}
-                className="mt-4 w-full bg-green-500 text-black px-4 py-2 rounded hover:bg-green-600 transition"
+                className="mt-4 bg-green-500 px-3 py-2 rounded hover:bg-green-600 transition"
+                onClick={() => handleChatStart(match)}
               >
-                💬 Start Chat
+                Start Chat 💬
               </button>
             </div>
           ))}
