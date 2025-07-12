@@ -70,8 +70,15 @@ const Matches = () => {
     fetchMatches();
   }, []);
 
-  const handleStartChat = (matchId: string, matchName: string) => {
-    navigate(`/chat/${matchId}`, { state: { name: matchName } });
+  const handleStartChat = (match: Match) => {
+    navigate(`/chat/${match.spotify_id}`, {
+      state: {
+        spotify_id: match.spotify_id,
+        name: match.display_name,
+        profile_image: match.profile_image,
+        shared_artists: match.shared_artists,
+      },
+    });
   };
 
   if (loading) {
@@ -129,9 +136,7 @@ const Matches = () => {
 
               {/* Start Chat Button */}
               <button
-                onClick={() =>
-                  handleStartChat(match.spotify_id, match.display_name)
-                }
+                onClick={() => handleStartChat(match)}
                 className="mt-4 w-full bg-green-500 text-black font-medium px-4 py-2 rounded hover:bg-green-400 hover:scale-105 transition duration-300 ease-in-out"
               >
                 💬 Start Chat

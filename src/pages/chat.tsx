@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 
 interface Match {
@@ -16,7 +16,11 @@ interface Message {
 }
 
 const Chat = () => {
-  const { spotify_id } = useParams<{ spotify_id: string }>();
+  const { spotify_id: paramSpotifyId } = useParams<{ spotify_id: string }>();
+  const location = useLocation();
+  const state = location.state as { spotify_id?: string; name?: string }; // fallback from navigate state
+  const spotify_id = paramSpotifyId || state?.spotify_id;
+
   const [match, setMatch] = useState<Match | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -49,7 +53,7 @@ const Chat = () => {
   const currentUserSpotifyId =
     localStorage.getItem("spotify_id") || getSpotifyIdFromJWT();
 
-  // If still not found, show error
+  // Save spotify_id in localStorage if we found it
   if (currentUserSpotifyId) {
     localStorage.setItem("spotify_id", currentUserSpotifyId);
   }
@@ -67,7 +71,7 @@ const Chat = () => {
       return;
     }
 
-    // ✅ Load chat partner
+    // ✅ Load chat partner details from localStorage
     const matchesString = localStorage.getItem("matches");
     if (matchesString) {
       const matches: Match[] = JSON.parse(matchesString);
