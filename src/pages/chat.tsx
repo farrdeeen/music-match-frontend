@@ -9,6 +9,7 @@ interface Match {
 }
 
 interface Message {
+  _id?: string;
   sender_id: string;
   receiver_id: string;
   message: string;
@@ -23,10 +24,31 @@ const Chat = () => {
   const [loading, setLoading] = useState(true);
 
   const currentUserSpotifyId = localStorage.getItem("spotify_id");
-  const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+  // Fetch existing chat messages
   useEffect(() => {
-    // Get matched user from localStorage
+    const fetchChats = async () => {
+      try {
+        console.log("📡 Fetching chats between", currentUserSpotifyId, "and", spotify_id);
+
+        const response = await fetch(
+          `${import.meta.env.VITE_API_URL}/chats?sender_id=${currentUserSpotifyId}&receiver_id=${spotify_id}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ Retrieved chats:", data.chats);
+          setMessages(data.chats);
+        } else {
+          console.error("❌ Failed to fetch chats:", await response.text());
+        }
+      } catch (error) {
+        console.error("❌ Error fetching chats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Get match info from localStorage
     const matchesString = localStorage.getItem("matches");
     if (matchesString) {
       const matches: Match[] = JSON.parse(matchesString);
@@ -34,59 +56,50 @@ const Chat = () => {
       setMatch(foundMatch || null);
     }
 
-    // Fetch previous chat messages
-    const fetchMessages = async () => {
-      try {
-        const res = await fetch(
-          `${backendUrl}/chats?sender_id=${currentUserSpotifyId}&receiver_id=${spotify_id}`
-        );
-        const data = await res.json();
-        setMessages(data.chats || []);
-      } catch (error) {
-        console.error("❌ Failed to fetch messages:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (currentUserSpotifyId && spotify_id) {
-      fetchMessages();
-    }
-  }, [spotify_id, currentUserSpotifyId, backendUrl]);
+    fetchChats();
+  }, [spotify_id, currentUserSpotifyId]);
 
   const handleSendMessage = async () => {
-  if (newMessage.trim() === "" || !currentUserSpotifyId) return; // 🚨 prevent null sender
+    if (newMessage.trim() === "" || !currentUserSpotifyId) return;
 
-  const messagePayload = {
-    sender_id: currentUserSpotifyId, // ✅ always string here
-    receiver_id: spotify_id ?? "",   // ✅ fallback to empty string
-    message: newMessage.trim(),
-  };
+    const messagePayload = {
+      sender_id: currentUserSpotifyId,
+      receiver_id: spotify_id,
+      message: newMessage.trim(),
+    };
 
-  try {
-    const res = await fetch(`${backendUrl}/chats`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(messagePayload),
-    });
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/chats`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(messagePayload),
+      });
 
-    if (res.ok) {
-      const timestamp = new Date().toISOString();
-      setMessages((prev) => [
-        ...prev,
-        { ...messagePayload, timestamp } as Message, // ✅ force type as Message
-      ]);
-      setNewMessage("");
-    } else {
-      console.error("❌ Failed to send message");
+      if (response.ok) {
+        const savedChat = await response.json();
+        console.log("✅ Message saved:", savedChat);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            _id: savedChat.chat_id,
+            sender_id: currentUserSpotifyId,
+            receiver_id: spotify_id!,
+            message: newMessage.trim(),
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+
+        setNewMessage("");
+      } else {
+        console.error("❌ Failed to send message:", await response.text());
+      }
+    } catch (error) {
+      console.error("❌ Error sending message:", error);
     }
-  } catch (error) {
-    console.error("❌ Error sending message:", error);
-  }
-};
-
+  };
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
