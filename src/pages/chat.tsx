@@ -1,5 +1,5 @@
 import { useParams } from "react-router-dom";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 
 interface Match {
   spotify_id: string;
@@ -10,6 +10,7 @@ interface Match {
 
 interface Message {
   sender_id: string;
+  receiver_id: string;
   message: string;
   timestamp: string;
 }
@@ -19,9 +20,10 @@ const Chat = () => {
   const [match, setMatch] = useState<Match | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const ws = useRef<WebSocket | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const currentUserSpotifyId = localStorage.getItem("spotify_id"); // 🔑 Store your user ID in localStorage after login
+  const currentUserSpotifyId = localStorage.getItem("spotify_id");
+  const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   useEffect(() => {
     // Get matched user from localStorage
@@ -32,47 +34,59 @@ const Chat = () => {
       setMatch(foundMatch || null);
     }
 
+    // Fetch previous chat messages
+    const fetchMessages = async () => {
+      try {
+        const res = await fetch(
+          `${backendUrl}/chats?sender_id=${currentUserSpotifyId}&receiver_id=${spotify_id}`
+        );
+        const data = await res.json();
+        setMessages(data.chats || []);
+      } catch (error) {
+        console.error("❌ Failed to fetch messages:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (currentUserSpotifyId && spotify_id) {
-      // Connect to WebSocket server
-      const backendUrl = import.meta.env.VITE_API_URL || "ws://localhost:8000"; // Adjust for your backend
-      ws.current = new WebSocket(
-        `${backendUrl.replace("http", "ws")}/ws/chat/${currentUserSpotifyId}/${spotify_id}`
-      );
-
-      ws.current.onopen = () => {
-        console.log("✅ Connected to WebSocket server");
-      };
-
-      ws.current.onmessage = (event) => {
-        const data = JSON.parse(event.data) as Message;
-        console.log("📩 Message received:", data);
-        setMessages((prev) => [...prev, data]);
-      };
-
-      ws.current.onclose = () => {
-        console.log("❌ WebSocket connection closed");
-      };
-
-      ws.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
-
-      // Clean up WebSocket on component unmount
-      return () => {
-        ws.current?.close();
-      };
+      fetchMessages();
     }
-  }, [spotify_id, currentUserSpotifyId]);
+  }, [spotify_id, currentUserSpotifyId, backendUrl]);
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() !== "" && ws.current?.readyState === WebSocket.OPEN) {
-      const messagePayload = {
-        message: newMessage.trim(),
-      };
-      ws.current.send(JSON.stringify(messagePayload));
-      setNewMessage("");
-    }
+  const handleSendMessage = async () => {
+  if (newMessage.trim() === "" || !currentUserSpotifyId) return; // 🚨 prevent null sender
+
+  const messagePayload = {
+    sender_id: currentUserSpotifyId, // ✅ always string here
+    receiver_id: spotify_id ?? "",   // ✅ fallback to empty string
+    message: newMessage.trim(),
   };
+
+  try {
+    const res = await fetch(`${backendUrl}/chats`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messagePayload),
+    });
+
+    if (res.ok) {
+      const timestamp = new Date().toISOString();
+      setMessages((prev) => [
+        ...prev,
+        { ...messagePayload, timestamp } as Message, // ✅ force type as Message
+      ]);
+      setNewMessage("");
+    } else {
+      console.error("❌ Failed to send message");
+    }
+  } catch (error) {
+    console.error("❌ Error sending message:", error);
+  }
+};
+
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
@@ -95,7 +109,9 @@ const Chat = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {messages.length === 0 ? (
+        {loading ? (
+          <p className="text-center text-gray-400">Loading messages…</p>
+        ) : messages.length === 0 ? (
           <p className="text-center text-gray-400">No messages yet. Start the conversation!</p>
         ) : (
           messages.map((msg, index) => (
