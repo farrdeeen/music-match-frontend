@@ -9,7 +9,6 @@ interface Match {
 }
 
 interface Message {
-  _id?: string;
   sender_id: string;
   receiver_id: string;
   message: string;
@@ -21,34 +20,25 @@ const Chat = () => {
   const [match, setMatch] = useState<Match | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const apiUrl = import.meta.env.VITE_API_URL;
 
   const currentUserSpotifyId = localStorage.getItem("spotify_id");
 
-  // Fetch existing chat messages
   useEffect(() => {
-    const fetchChats = async () => {
-      try {
-        console.log("📡 Fetching chats between", currentUserSpotifyId, "and", spotify_id);
+    console.log("🌍 API URL:", apiUrl);
+    console.log("👤 Current user:", currentUserSpotifyId, "| Chat with:", spotify_id);
 
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/chats?sender_id=${currentUserSpotifyId}&receiver_id=${spotify_id}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          console.log("✅ Retrieved chats:", data.chats);
-          setMessages(data.chats);
-        } else {
-          console.error("❌ Failed to fetch chats:", await response.text());
-        }
-      } catch (error) {
-        console.error("❌ Error fetching chats:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!currentUserSpotifyId || !spotify_id) {
+      setError("❌ Missing user information. Please login again.");
+      console.error("❌ Missing IDs:", {
+        currentUserSpotifyId,
+        spotify_id,
+      });
+      return;
+    }
 
-    // Get match info from localStorage
+    // ✅ Load chat partner
     const matchesString = localStorage.getItem("matches");
     if (matchesString) {
       const matches: Match[] = JSON.parse(matchesString);
@@ -56,50 +46,78 @@ const Chat = () => {
       setMatch(foundMatch || null);
     }
 
+    // ✅ Fetch chat history
+    const fetchChats = async () => {
+      try {
+        console.log(`📡 Fetching chats between ${currentUserSpotifyId} and ${spotify_id}`);
+        const response = await fetch(
+          `${apiUrl}/chats?sender_id=${currentUserSpotifyId}&receiver_id=${spotify_id}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("✅ Retrieved chats:", data.chats);
+        setMessages(data.chats);
+      } catch (err: any) {
+        console.error("❌ Error fetching chats:", err);
+        setError("Failed to fetch chat history. Please try again later.");
+      }
+    };
+
     fetchChats();
-  }, [spotify_id, currentUserSpotifyId]);
+  }, [spotify_id, currentUserSpotifyId, apiUrl]);
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === "" || !currentUserSpotifyId) return;
+    if (!newMessage.trim()) return;
 
-    const messagePayload = {
+    if (!currentUserSpotifyId || !spotify_id) {
+      console.error("❌ Cannot send message: Missing user IDs");
+      setError("❌ Cannot send message: Missing user information.");
+      return;
+    }
+
+    const payload = {
       sender_id: currentUserSpotifyId,
       receiver_id: spotify_id,
       message: newMessage.trim(),
     };
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/chats`, {
+      console.log("📤 Sending message:", payload);
+      const response = await fetch(`${apiUrl}/chats`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(messagePayload),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        const savedChat = await response.json();
-        console.log("✅ Message saved:", savedChat);
-
-        setMessages((prev) => [
-          ...prev,
-          {
-            _id: savedChat.chat_id,
-            sender_id: currentUserSpotifyId,
-            receiver_id: spotify_id!,
-            message: newMessage.trim(),
-            timestamp: new Date().toISOString(),
-          },
-        ]);
-
-        setNewMessage("");
-      } else {
-        console.error("❌ Failed to send message:", await response.text());
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
       }
-    } catch (error) {
-      console.error("❌ Error sending message:", error);
+
+      const savedChat = await response.json();
+      console.log("✅ Message saved:", savedChat);
+
+      setMessages((prev) => [
+        ...prev,
+        { ...payload, timestamp: new Date().toISOString() },
+      ]);
+      setNewMessage("");
+    } catch (err: any) {
+      console.error("❌ Error sending message:", err);
+      setError("Failed to send message. Please try again.");
     }
   };
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-black text-red-500">
+        <p>{error}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-black text-white">
@@ -113,7 +131,7 @@ const Chat = () => {
           />
         )}
         <div>
-          <h2 className="text-xl font-bold">{match?.display_name}</h2>
+          <h2 className="text-xl font-bold">{match?.display_name || "Unknown User"}</h2>
           <p className="text-gray-400 text-sm">
             Shared Artists: {match?.shared_artists?.join(", ") || "None"}
           </p>
@@ -122,10 +140,10 @@ const Chat = () => {
 
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2">
-        {loading ? (
-          <p className="text-center text-gray-400">Loading messages…</p>
-        ) : messages.length === 0 ? (
-          <p className="text-center text-gray-400">No messages yet. Start the conversation!</p>
+        {messages.length === 0 ? (
+          <p className="text-center text-gray-400">
+            No messages yet. Start the conversation!
+          </p>
         ) : (
           messages.map((msg, index) => (
             <div
