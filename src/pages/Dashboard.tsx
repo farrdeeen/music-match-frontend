@@ -17,6 +17,24 @@ const Dashboard = () => {
 
   const BACKEND_URL = "https://music-match-backend.onrender.com"; // Update if needed
 
+  // 🔥 Decode JWT manually
+  const decodeJWT = (token: string) => {
+    try {
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
+          .join("")
+      );
+      return JSON.parse(jsonPayload);
+    } catch (err) {
+      console.error("❌ Failed to decode JWT", err);
+      return null;
+    }
+  };
+
   // Grab JWT token from URL or localStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -25,6 +43,13 @@ const Dashboard = () => {
     if (jwtToken) {
       setToken(jwtToken);
       localStorage.setItem("jwt", jwtToken);
+
+      // 🆕 Save spotify_id
+      const decoded = decodeJWT(jwtToken);
+      if (decoded?.spotify_id) {
+        localStorage.setItem("spotify_id", decoded.spotify_id);
+      }
+
       window.history.replaceState({}, document.title, "/dashboard"); // Clean URL
     } else {
       const storedToken = localStorage.getItem("jwt");
@@ -105,7 +130,7 @@ const Dashboard = () => {
 
       {/* 🎧 Button to navigate to Matches */}
       <button
-        onClick={() => navigate("/matches")}
+        onClick={handleViewMatches}
         className="mt-6 px-5 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg transition"
       >
         View Your Matches 🎧

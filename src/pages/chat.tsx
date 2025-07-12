@@ -21,9 +21,38 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const apiUrl = import.meta.env.VITE_API_URL;
 
-  const currentUserSpotifyId = localStorage.getItem("spotify_id");
+  const apiUrl = import.meta.env.VITE_API_URL || "https://music-match-backend.onrender.com";
+
+  // ✅ Get current user spotify_id from JWT in localStorage
+  const getSpotifyIdFromJWT = () => {
+    const token = localStorage.getItem("jwt");
+    if (!token) return null;
+
+    try {
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
+          .join("")
+      );
+      const decoded = JSON.parse(jsonPayload);
+      return decoded.spotify_id || null;
+    } catch (err) {
+      console.error("❌ Failed to decode JWT for spotify_id:", err);
+      return null;
+    }
+  };
+
+  const currentUserSpotifyId =
+    localStorage.getItem("spotify_id") || getSpotifyIdFromJWT();
+
+  // If still not found, show error
+  if (currentUserSpotifyId) {
+    localStorage.setItem("spotify_id", currentUserSpotifyId);
+  }
 
   useEffect(() => {
     console.log("🌍 API URL:", apiUrl);

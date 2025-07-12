@@ -20,6 +20,24 @@ const Matches = () => {
   const BACKEND_URL =
     import.meta.env.VITE_BACKEND_URL || "https://music-match-backend.onrender.com";
 
+  // 🔥 Decode JWT manually
+  const decodeJWT = (token: string) => {
+    try {
+      const base64Url = token.split(".")[1];
+      const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
+          .join("")
+      );
+      return JSON.parse(jsonPayload);
+    } catch (err) {
+      console.error("❌ Failed to decode JWT", err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("jwt");
 
@@ -29,6 +47,12 @@ const Matches = () => {
       return;
     }
 
+    // 🆕 Save spotify_id locally
+    const decoded = decodeJWT(token);
+    if (decoded?.spotify_id) {
+      localStorage.setItem("spotify_id", decoded.spotify_id);
+    }
+
     const fetchMatches = async () => {
       try {
         const res = await axios.get(`${BACKEND_URL}/match-users`, {
@@ -36,6 +60,7 @@ const Matches = () => {
         });
         setMatches(res.data.matches);
       } catch (err: any) {
+        console.error("❌ Error fetching matches:", err);
         setError("Failed to fetch matches.");
       } finally {
         setLoading(false);
